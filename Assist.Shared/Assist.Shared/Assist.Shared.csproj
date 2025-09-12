@@ -25,6 +25,9 @@
       <Reference Include="AssistUser.Lib">
         <HintPath>Library\AssistUser.Lib.dll</HintPath>
       </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
       <Reference Include="Valnet">
         <HintPath>Library\Valnet.dll</HintPath>
       </Reference>

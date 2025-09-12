@@ -105,20 +105,34 @@ public partial class RAccountCloudViewModel : ViewModelBase
         }
     }
 
-    private async Task LoginWithWebCookies(Dictionary<string, Cookie> cookieContainer)
+    private async Task LoginWithWebCookies(Dictionary<string, Cookie> cookieContainer, string? regionHint = null)
     {
         Log.Information("Attempting to login with Riot Account with Cloud");
         string curlPath = Path.Exists(Path.Combine(DependencyUtils.CurlDependencyFolder, "curl.exe")) ? Path.Combine(DependencyUtils.CurlDependencyFolder, "curl.exe") : "curl";
-        RiotUser usr = new RiotUserBuilder().WithCustomCurl(curlPath).WithSettings(new RiotUserSettings()
+        var builder = new RiotUserBuilder().WithCustomCurl(curlPath).WithSettings(new RiotUserSettings()
         {
             AuthenticationMethod = AuthenticationMethod.CURL
-        }).Build();
+        });
+        if (!string.IsNullOrWhiteSpace(regionHint))
+        {
+            // Try to map string to RiotRegion enum dynamically
+            try
+            {
+                if (Enum.TryParse<RiotRegion>(regionHint, true, out var rr))
+                {
+                    Log.Information($"Using region hint: {rr}");
+                    builder = builder.WithRegion(rr);
+                }
+            }
+            catch { }
+        }
+        RiotUser usr = builder.Build();
 
         try
         {
             usr.GetAuthClient().SetCookies(cookieContainer);
-           var result =  await usr.Authentication.ReAuthWithCookies();
-           
+            var result =  await usr.Authentication.ReAuthWithCookies();
+            
         }
         catch (Exception e)
         {
@@ -226,20 +240,45 @@ public partial class RAccountCloudViewModel : ViewModelBase
                                   || x.Name.Contains("_ga_", StringComparison.OrdinalIgnoreCase)
                                   || x.Name.Equals("_ga", StringComparison.OrdinalIgnoreCase);
 
-                    var isRelevantDomain = (x.Domain?.Contains("riotgames.com", StringComparison.OrdinalIgnoreCase) ?? false)
-                                           || (x.Domain?.Contains("playvalorant.com", StringComparison.OrdinalIgnoreCase) ?? false)
-                                           || (x.Domain?.Contains("valorant.com", StringComparison.OrdinalIgnoreCase) ?? false)
-                                           || (x.Domain?.Contains("auth.riotgames.com", StringComparison.OrdinalIgnoreCase) ?? false)
-                                           || (x.Domain?.Contains("login.riotgames.com", StringComparison.OrdinalIgnoreCase) ?? false);
+                    // Keep only core Riot auth hosts; avoid playvalorant/valorant/lolesports/account.* noise
+                    var host = (x.Domain ?? string.Empty).Trim('.');
+                    var isRelevantDomain = host.Equals("auth.riotgames.com", StringComparison.OrdinalIgnoreCase)
+                                           || host.Equals("login.riotgames.com", StringComparison.OrdinalIgnoreCase);
 
                     if (!isNoise && isRelevantDomain)
                     {
-                        cc.TryAdd(x.Name, new Cookie(x.Name, x.Value, x.Path, x.Domain));
+                        var fwd = new Cookie
+                        {
+                            Name = x.Name,
+                            Value = x.Value,
+                            Path = x.Path,
+                            Domain = x.Domain,
+                            Secure = x.IsSecure,
+                            HttpOnly = x.IsHttpOnly,
+                        };
+                        if (x.Expires.ToString().Contains("1/1/0001"))
+                            fwd.Expires = DateTime.Now.AddMonths(1);
+                        else
+                            fwd.Expires = x.Expires;
+
+                        cc[x.Name] = fwd;
+                        Log.Debug($"Forwarding cookie: {x.Name}; Domain={x.Domain}; Path={x.Path}; Secure={x.IsSecure}; HttpOnly={x.IsHttpOnly}");
                     }
                 });
-                
 
-                await LoginWithWebCookies(cc);
+                // Attempt to derive region from cookies if available
+                string? regionHint = null;
+                try
+                {
+                    var regionCookie = cookies.Find(c => c.Name.Equals("PVPNET_REGION", StringComparison.OrdinalIgnoreCase));
+                    if (regionCookie != null)
+                    {
+                        regionHint = MapRegionFromCookie(regionCookie.Value);
+                    }
+                }
+                catch { }
+
+                await LoginWithWebCookies(cc, regionHint);
             }
         }
     }
@@ -251,6 +290,10 @@ public partial class RAccountCloudViewModel : ViewModelBase
         var result = await webView.CoreWebView2.CookieManager.GetCookiesAsync(null);
 
         result.ForEach(x => Log.Information(x.Name));
+        foreach (var ck in result)
+        {
+            Log.Debug($"Cookie: {ck.Name}; Domain={ck.Domain}; Path={ck.Path}; Expires={ck.Expires}");
+        }
         var c = result.Find(_c => _c.Name == "ssid");
 
         if (c != null)
@@ -275,6 +318,19 @@ public partial class RAccountCloudViewModel : ViewModelBase
         }
 
         return result;
+    }
+    private static string? MapRegionFromCookie(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var v = value.Trim().ToUpperInvariant();
+        if (v.Contains("EU")) return "EU";
+        if (v.Contains("NA")) return "NA";
+        if (v.Contains("AP")) return "AP";
+        if (v.Contains("KR")) return "KR";
+        if (v.Contains("BR")) return "BR";
+        if (v.Contains("LATAM")) return "LATAM";
+        if (v.Contains("OCE") || v.Contains("OC1")) return "AP";
+        return null;
     }
     private void EnsureHttps(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
