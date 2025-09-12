@@ -34,14 +34,22 @@ public partial class ArticleContainerViewModel : ViewModelBase
     [ObservableProperty] private string _articleDescription;
     public async void Setup()
     {
-        // Get Articles
-        await GetArticles();
+        try
+        {
+            // Get Articles
+            await GetArticles();
 
-        // Create Button for Articles
-        CreateArticleButtons();
+            // Create Button for Articles
+            CreateArticleButtons();
 
-        if (!_articles.IsNullOrEmpty())
-            SwapArticle(_articles[0].RedirectUrl);
+            if (!_articles.IsNullOrEmpty())
+                SwapArticle(_articles[0].RedirectUrl);
+        }
+        catch (System.Exception ex)
+        {
+            Serilog.Log.Error("Dashboard Articles setup failed: {Message}", ex.Message);
+            Serilog.Log.Error(ex.StackTrace);
+        }
     }
 
     public void Refresh()
@@ -56,13 +64,20 @@ public partial class ArticleContainerViewModel : ViewModelBase
 
     private async Task GetArticles()
     {
-        var resp = await AssistApplication.AssistUser.Config.GetAllNewsNodes();
+        try
+        {
+            var resp = await AssistApplication.AssistUser.Config.GetAllNewsNodes();
 
-        if (resp.Code != 200)
-            return;
+            if (resp.Code != 200)
+                return;
 
-        _articles = JsonSerializer.Deserialize<List<AssistArticleNewsNode>>(resp.Data.ToString());
-        
+            _articles = JsonSerializer.Deserialize<List<AssistArticleNewsNode>>(resp.Data.ToString());
+        }
+        catch (System.Exception ex)
+        {
+            Serilog.Log.Error("GetArticles failed: {Message}", ex.Message);
+            Serilog.Log.Error(ex.StackTrace);
+        }
     }
     
     

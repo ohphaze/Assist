@@ -19,11 +19,27 @@ public partial class ProgressionPreviewControl : UserControl
 
     private async void ProgressionPreview_Init(object? sender, EventArgs e)
     {
-        if (!Design.IsDesignMode) await _viewModel.Setup();
+        if (!Design.IsDesignMode)
+        {
+            try { await _viewModel.Setup(); }
+            catch (System.Exception ex)
+            {
+                Serilog.Log.Error("ProgressionPreview_Init failed: {Message}", ex.Message);
+                Serilog.Log.Error(ex.StackTrace);
+            }
+        }
     }
 
     private async void ProgressionPreview_Loaded(object? sender, RoutedEventArgs e)
     {
-        if (!Design.IsDesignMode) await _viewModel.LoadedCheck();
+        if (!Design.IsDesignMode)
+        {
+            try { await _viewModel.LoadedCheck(); }
+            catch (System.Exception ex)
+            {
+                Serilog.Log.Error("ProgressionPreview_Loaded failed: {Message}", ex.Message);
+                Serilog.Log.Error(ex.StackTrace);
+            }
+        }
     }
 }

@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using Assist.Models.Enums;
 using Assist.Services.Navigation;
 using Assist.Shared.Services.Utils;
@@ -34,6 +35,7 @@ namespace Assist;
 
 public partial class App : Application
 {
+    private static string? _logFilePath;
 #if DEBUG
     public const string APPPROTOCOL = "assistdebug";
 #else
@@ -67,6 +69,28 @@ public partial class App : Application
     {
         Log.Information("Exiting");
         AssistSettings.Save();
+        try
+        {
+            var openLog = Environment.GetEnvironmentVariable("ASSIST_OPEN_LOG_ON_EXIT");
+            if (!string.IsNullOrEmpty(openLog) && openLog == "1" && !string.IsNullOrEmpty(_logFilePath) && File.Exists(_logFilePath))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "notepad.exe",
+                    Arguments = _logFilePath,
+                    UseShellExecute = true
+                });
+            }
+
+            var pause = Environment.GetEnvironmentVariable("ASSIST_PAUSE_ON_EXIT");
+            if (!string.IsNullOrEmpty(pause) && pause == "1")
+            {
+                try { WindowsUtils.AllocConsole(); } catch { }
+                Console.WriteLine("Assist closed. Press Enter to exit...");
+                Console.ReadLine();
+            }
+        }
+        catch { }
     }
 
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
@@ -78,6 +102,32 @@ public partial class App : Application
     {
         CreateDirectories();
         CreateLogger();
+        // Global exception logging hooks
+        try
+        {
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                try
+                {
+                    var ex = e.ExceptionObject as Exception;
+                    Log.Fatal("Unhandled exception: {Message}", ex?.Message);
+                    Log.Fatal(ex?.StackTrace);
+                    Log.CloseAndFlush();
+                }
+                catch { }
+            };
+            TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                try
+                {
+                    Log.Fatal("Unobserved task exception: {Message}", e.Exception?.Message);
+                    Log.Fatal(e.Exception?.StackTrace);
+                    Log.CloseAndFlush();
+                }
+                catch { }
+            };
+        }
+        catch { }
         CheckForSettings();
         ImageLoader.AsyncImageLoader = new DiskCachedWebImageLoader(AssistSettings.CacheFolderPath);
         HandleProtocol();
@@ -98,9 +148,12 @@ public partial class App : Application
         WindowsUtils.AllocConsole();
         Log.Logger = new LoggerConfiguration().WriteTo.Console(theme: AnsiConsoleTheme.Literate).CreateLogger();
 #else
-        Log.Logger = new LoggerConfiguration().WriteTo.Console(theme: AnsiConsoleTheme.Literate).WriteTo.File(
-            Path.Combine(GetApplicationDataFolder(), "Logs", $"Assist-{DateTime.Now:yyyy-MM-dd}-{fileCount}.txt"),
-            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [Assist] {Message:lj}{NewLine}{Exception}").CreateLogger();
+        _logFilePath = Path.Combine(GetApplicationDataFolder(), "Logs", $"Assist-{DateTime.Now:yyyy-MM-dd}-{fileCount}.txt");
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console(theme: AnsiConsoleTheme.Literate)
+            .WriteTo.File(_logFilePath,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [Assist] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
 #endif
         
         // ty fmodel boys <3 - Mike

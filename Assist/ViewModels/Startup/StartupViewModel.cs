@@ -4,6 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Assist.Controls.Assist.Account;
@@ -292,10 +296,7 @@ public partial class StartupViewModel : ViewModelBase
         try
         {
             var cookies = profile.Convert64ToCookies();
-            var v = new Dictionary<string, Cookie>();
-            
             usr.GetAuthClient().SaveCookies(cookies);
-
             await usr.Authentication.ReAuthWithCookies();
         }
         catch (Exception e)
@@ -305,35 +306,202 @@ public partial class StartupViewModel : ViewModelBase
             Log.Error("Source: " + e.Source);
             Log.Error("Stack: " + e.StackTrace);
 
-            profile.CanAssistBoot = false;
-            profile.IsExpired = true;
-            await AccountSettings.Default.UpdateAccount(profile);
-            throw new Exception("Failed to Authenticate");
+            // Fallback to JSON-token cookie auth (same as cloud flow)
+            try
+            {
+                var cookies = profile.Convert64ToCookies();
+                var ok = await TryCookieAuthFallback(usr, cookies);
+                if (!ok)
+                {
+                    profile.CanAssistBoot = false;
+                    profile.IsExpired = true;
+                    await AccountSettings.Default.UpdateAccount(profile);
+                    throw new Exception("Failed to Authenticate");
+                }
+            }
+            catch
+            {
+                profile.CanAssistBoot = false;
+                profile.IsExpired = true;
+                await AccountSettings.Default.UpdateAccount(profile);
+                throw new Exception("Failed to Authenticate");
+            }
         }
         
         Log.Information("Account Successfully Logged in!");
-        await HandleSuccessfulLogin(usr: usr);
+        try
+        {
+            await HandleSuccessfulLogin(usr: usr);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("HandleSuccessfulLogin failed");
+            Log.Error(ex.Message);
+            // Don't invalidate account here; continue to launcher
+            await AssistApplication.SetupComplete_Launcher();
+            return;
+        }
         
         Log.Information("Going to Dashboard.");
         await AssistApplication.SetupComplete_Launcher();
+    }
+
+    private static string BuildCookieHeader(Dictionary<string, Cookie> cookies)
+    {
+        var list = new List<string>();
+        foreach (var kv in cookies)
+        {
+            if (string.IsNullOrWhiteSpace(kv.Key)) continue;
+            list.Add($"{kv.Key}={kv.Value?.Value}");
+        }
+        return string.Join("; ", list);
+    }
+
+    private static void TryAddDefaultHeader(object? restClient, string name, string value)
+    {
+        if (restClient == null) return;
+        try
+        {
+            var m = restClient.GetType().GetMethod("AddDefaultHeader", new[] { typeof(string), typeof(string) });
+            m?.Invoke(restClient, new object[] { name, value });
+        }
+        catch { }
+        try
+        {
+            var prop = restClient.GetType().GetProperty("Client");
+            var httpClient = prop?.GetValue(restClient);
+            var headersProp = httpClient?.GetType().GetProperty("DefaultRequestHeaders");
+            var headers = headersProp?.GetValue(httpClient);
+            var addMethod = headers?.GetType().GetMethod("Add", new[] { typeof(string), typeof(string) });
+            addMethod?.Invoke(headers, new object[] { name, value });
+        }
+        catch { }
+    }
+
+    private async Task<bool> TryCookieAuthFallback(RiotUser usr, Dictionary<string, Cookie> cookies)
+    {
+        Log.Information("Startup fallback: cookie-auth with JSON tokens");
+        using var handler = new System.Net.Http.HttpClientHandler { UseCookies = false, AutomaticDecompression = System.Net.DecompressionMethods.All };
+        using var http = new System.Net.Http.HttpClient(handler);
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36");
+        http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        var cookieHeader = BuildCookieHeader(cookies);
+        if (!string.IsNullOrWhiteSpace(cookieHeader)) http.DefaultRequestHeaders.Add("Cookie", cookieHeader);
+
+        var authUrl = "https://auth.riotgames.com/api/v1/authorization";
+        var entitleUrl = "https://entitlements.auth.riotgames.com/api/token/v1";
+        var userInfoUrl = "https://auth.riotgames.com/userinfo";
+
+        var payload = new { client_id = "play-valorant-web-prod", nonce = 1, redirect_uri = "https://playvalorant.com/opt_in", response_type = "token id_token", scope = "account openid" };
+
+        var authResp = await http.PostAsync(authUrl, new System.Net.Http.StringContent(System.Text.Json.JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+        var authBody = await authResp.Content.ReadAsStringAsync();
+        if (!authResp.IsSuccessStatusCode) { Log.Error($"Startup fallback auth failed: {(int)authResp.StatusCode}"); Log.Debug(authBody); return false; }
+
+        string accessToken = string.Empty, idToken = string.Empty;
+        using (var doc = System.Text.Json.JsonDocument.Parse(authBody))
+        {
+            var root = doc.RootElement;
+            if (root.TryGetProperty("response", out var resp) && resp.TryGetProperty("parameters", out var par) && par.TryGetProperty("uri", out var uriEl))
+            {
+                var uri = uriEl.GetString() ?? string.Empty;
+                var frag = uri.IndexOf('#');
+                var query = frag >= 0 ? uri[(frag + 1)..] : uri;
+                foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var kv = part.Split('=', 2);
+                    if (kv.Length != 2) continue;
+                    var key = kv[0]; var val = Uri.UnescapeDataString(kv[1]);
+                    if (key == "access_token") accessToken = val; else if (key == "id_token") idToken = val;
+                }
+            }
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                if (root.TryGetProperty("access_token", out var at)) accessToken = at.GetString() ?? string.Empty;
+                if (root.TryGetProperty("id_token", out var it)) idToken = it.GetString() ?? string.Empty;
+            }
+        }
+        if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(idToken)) { Log.Error("Startup fallback missing tokens"); return false; }
+
+        var entReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, entitleUrl) { Content = new System.Net.Http.StringContent("{}", Encoding.UTF8, "application/json") };
+        entReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var entResp = await http.SendAsync(entReq);
+        var entBody = await entResp.Content.ReadAsStringAsync();
+        if (!entResp.IsSuccessStatusCode) { Log.Error("Startup fallback entitlements failed"); Log.Debug(entBody); return false; }
+        string entitlements = string.Empty;
+        using (var ed = System.Text.Json.JsonDocument.Parse(entBody))
+        {
+            if (ed.RootElement.TryGetProperty("entitlements_token", out var et)) entitlements = et.GetString() ?? string.Empty;
+        }
+        if (string.IsNullOrEmpty(entitlements)) { Log.Error("Startup fallback entitlements missing"); return false; }
+
+        var uiReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, userInfoUrl);
+        uiReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var uiResp = await http.SendAsync(uiReq);
+        var uiBody = await uiResp.Content.ReadAsStringAsync();
+        if (!uiResp.IsSuccessStatusCode) { Log.Error("Startup fallback userinfo failed"); Log.Debug(uiBody); return false; }
+
+        // Apply headers to ValNet clients via reflection
+        try
+        {
+            var userClientObj = usr.GetType().GetProperty("UserClient", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)?.GetValue(usr);
+            TryAddDefaultHeader(userClientObj, "Authorization", $"Bearer {accessToken}");
+            TryAddDefaultHeader(userClientObj, "X-Riot-Entitlements-JWT", entitlements);
+            var authClientObj = usr.GetType().GetProperty("AuthClient", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)?.GetValue(usr);
+            TryAddDefaultHeader(authClientObj, "Authorization", $"Bearer {accessToken}");
+            TryAddDefaultHeader(authClientObj, "X-Riot-Entitlements-JWT", entitlements);
+        }
+        catch { }
+
+        // Best effort to set UserData from userinfo json via reflection; if it fails downstream code may still populate later
+        try
+        {
+            string? sub = null, game = null, tag = null;
+            using var udoc = System.Text.Json.JsonDocument.Parse(uiBody);
+            var root = udoc.RootElement;
+            sub = root.TryGetProperty("sub", out var sEl) ? sEl.GetString() : null;
+            if (root.TryGetProperty("acct", out var acct))
+            {
+                game = acct.TryGetProperty("game_name", out var gn) ? gn.GetString() : null;
+                tag = acct.TryGetProperty("tag_line", out var tl) ? tl.GetString() : null;
+            }
+            var asm = usr.GetType().Assembly;
+            var udType = asm.GetType("ValNet.Objects.Authentication.RiotUserData");
+            var acctType = asm.GetType("ValNet.Objects.Authentication.AccountInfo");
+            if (udType != null && acctType != null)
+            {
+                var acctObj = Activator.CreateInstance(acctType);
+                acctType.GetProperty("game_name")?.SetValue(acctObj, game ?? string.Empty);
+                acctType.GetProperty("tag_line")?.SetValue(acctObj, tag ?? string.Empty);
+                var userData = Activator.CreateInstance(udType);
+                udType.GetProperty("sub")?.SetValue(userData, sub ?? string.Empty);
+                udType.GetProperty("acct")?.SetValue(userData, acctObj);
+                usr.GetType().GetProperty("UserData")?.SetValue(usr, userData);
+            }
+        }
+        catch { }
+
+        Log.Information("Startup cookie-auth fallback succeeded");
+        return true;
     }
 
     private async Task HandleSuccessfulLogin(RiotUser usr)
     {
         Log.Information("Successful login with Riot Account with Username/Password");
         AccountProfile profile = new AccountProfile();
-        if (AccountSettings.Default.Accounts.Exists(x => x.Id == usr.UserData.sub))
-            profile = AccountSettings.Default.Accounts.Find(x => x.Id == usr.UserData.sub);
+        var subId = usr.UserData?.sub ?? string.Empty;
+        if (AccountSettings.Default.Accounts.Exists(x => x.Id == subId))
+            profile = AccountSettings.Default.Accounts.Find(x => x.Id == subId);
         
         try
         {
-            profile.Id = usr.UserData.sub;
-            profile.Region = usr.GetRegion();
+            profile.Id = subId;
+            try { profile.Region = usr.GetRegion(); } catch { }
             profile.LastLoginTime = DateTime.UtcNow;
             profile.Personalization = new AccountProfile.AccountProfilePersonalization()
             {
-                GameName = usr.UserData.acct.game_name,
-                TagLine = usr.UserData.acct.tag_line
+                GameName = usr.UserData?.acct?.game_name ?? string.Empty,
+                TagLine = usr.UserData?.acct?.tag_line ?? string.Empty
             };
             try
             {
@@ -356,7 +524,13 @@ public partial class StartupViewModel : ViewModelBase
                 Log.Error("Failed to Get MMR Data when setting up profile");
             }
             
-            profile.ConvertCookiesTo64(usr.GetAuthClient().ClientCookies);
+            try
+            {
+                var clientCookiesProp = usr.GetAuthClient().GetType().GetProperty("ClientCookies");
+                var cc = clientCookiesProp?.GetValue(usr.GetAuthClient()) as System.Collections.Generic.Dictionary<string, Cookie>;
+                if (cc != null) profile.ConvertCookiesTo64(cc);
+            }
+            catch { }
         }
         catch (Exception e)
         {

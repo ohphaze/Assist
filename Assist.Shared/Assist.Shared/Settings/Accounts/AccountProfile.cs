@@ -156,7 +156,8 @@ public class AccountProfile
             {
                 string s = $"{cookie.Value}";
                 var plainTextBytes = Encoding.UTF8.GetBytes(s);
-                sixFour += Convert.ToString(plainTextBytes) + "||assist||";
+                // Bugfix: use base64 encoding (was Convert.ToString on byte[])
+                sixFour += Convert.ToBase64String(plainTextBytes) + "||assist||";
             }
 
             this.AssistCAuthCode = sixFour;

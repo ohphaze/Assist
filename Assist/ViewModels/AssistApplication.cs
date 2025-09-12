@@ -15,6 +15,7 @@ using Assist.Views;
 using Assist.Views.Dashboard;
 using Assist.Views.Extras;
 using Assist.Views.Game.Live;
+using Assist.Views.Startup;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -165,20 +166,78 @@ public static class AssistApplication
     /// </summary>
     public static async Task SetupComplete_Launcher()
     {
-        
-        await Titlebar.ViewModel.ShowcaseProfile(AssistApplication.ActiveAccountProfile);
-        await SwapAssistMode(EAssistMode.LAUNCHER);
-        
-        Dispatcher.UIThread.Invoke(() =>
+        try
         {
-            Titlebar.ViewModel.AccountSwapVisible = true;
-            Titlebar.ViewModel.AccountSwapEnabled = true;
-            Titlebar.ViewModel.SettingsEnabled = true;
-            EnableDefaultLauncherButtons();
-            NavigationContainer.ViewModel.ChangePage(AssistPage.DASHBOARD);
-        });
-        
-        
+            if (ActiveAccountProfile == null)
+            {
+                Log.Warning("SetupComplete_Launcher: ActiveAccountProfile is null");
+            }
+
+            if (Titlebar.ViewModel == null)
+            {
+                Log.Warning("SetupComplete_Launcher: Titlebar.ViewModel is null");
+            }
+            else
+            {
+                try
+                {
+                    await Titlebar.ViewModel.ShowcaseProfile(ActiveAccountProfile);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("SetupComplete_Launcher: ShowcaseProfile failed: {Message}", ex.Message);
+                    Log.Error(ex.StackTrace);
+                }
+            }
+
+            await SwapAssistMode(EAssistMode.LAUNCHER);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                try
+                {
+                    if (Titlebar.ViewModel != null)
+                    {
+                        Titlebar.ViewModel.AccountSwapVisible = true;
+                        Titlebar.ViewModel.AccountSwapEnabled = true;
+                        Titlebar.ViewModel.SettingsEnabled = true;
+                    }
+
+                    EnableDefaultLauncherButtons();
+
+                    // Navigate to Dashboard; log any failure instead of crashing
+                    try
+                    {
+                        NavigationContainer.ViewModel.ChangePage(AssistPage.DASHBOARD);
+                    }
+                    catch (Exception navEx)
+                    {
+                        Log.Error("SetupComplete_Launcher: Navigation to Dashboard failed: {Message}", navEx.Message);
+                        Log.Error(navEx.StackTrace);
+                    }
+                }
+                catch (Exception uiEx)
+                {
+                    Log.Error("SetupComplete_Launcher: UI apply failed: {Message}", uiEx.Message);
+                    Log.Error(uiEx.StackTrace);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("SetupComplete_Launcher failed: {Message}", ex.Message);
+            Log.Error(ex.StackTrace);
+
+            // Keep the app alive by returning to StartupView as a fallback
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                try
+                {
+                    ChangeMainWindowView(new StartupView());
+                }
+                catch { }
+            });
+        }
     }
     
     /// <summary>

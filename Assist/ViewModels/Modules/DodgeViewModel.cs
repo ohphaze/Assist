@@ -13,7 +13,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
-using ValNet.Core.Player;
 
 namespace Assist.ViewModels.Modules;
 

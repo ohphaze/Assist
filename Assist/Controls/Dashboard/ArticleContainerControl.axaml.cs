@@ -22,13 +22,29 @@ public partial class ArticleContainerControl : UserControl
     {
         if (Design.IsDesignMode)
             return; 
-        _viewModel.Setup();
+        try
+        {
+            _viewModel.Setup();
+        }
+        catch (System.Exception ex)
+        {
+            Serilog.Log.Error("ArticleContainer_Init failed: {Message}", ex.Message);
+            Serilog.Log.Error(ex.StackTrace);
+        }
     }
 
     private void ArticleContainer_Loaded(object? sender, RoutedEventArgs e)
     {
         if (Design.IsDesignMode)
             return; 
-        _viewModel.Refresh();
+        try
+        {
+            _viewModel.Refresh();
+        }
+        catch (System.Exception ex)
+        {
+            Serilog.Log.Error("ArticleContainer_Loaded failed: {Message}", ex.Message);
+            Serilog.Log.Error(ex.StackTrace);
+        }
     }
 }

@@ -149,31 +149,62 @@ public partial class ProgressionPreviewViewModel : ViewModelBase
 
     public async Task SetupWeeklyMissions()
     {
-        if (_userContacts is null || _newUser)
-            _userContacts = await AssistApplication.ActiveUser.Contracts.GetAllContracts();
-
-        if (allMissions is null)
-            allMissions = await AssistApplication.AssistApiService.GetAllMissions();
-
-        var date = DateTime.Now.AddDays(1);
-
-        var weeklyMissions = _userContacts.Missions.FindAll(_mission => (_mission.ExpirationTime.Day != date.Day) || (_mission.ExpirationTime.Day != DateTime.Now.Day));
-        
-        for (int i = 0; i < weeklyMissions.Count; i++)
+        try
         {
-            var missionData = allMissions.Find(_m => weeklyMissions[i].ID == _m.Uuid);
-            if (missionData is null || missionData.XpGrant == 2000) { continue; }
-
-            WeeklyMissions.Add(new PreviewMissionControl()
+            if (_userContacts is null || _newUser)
             {
-                Height = 30,
-                Title = missionData.Title,
-                CurrentProgress = weeklyMissions[i].Objectives.First().Value,
-                MaxProgress = missionData.ProgressToComplete,
-                XpGrantAmount = $"{missionData.XpGrant}XP",
-                PreviewText = $"{weeklyMissions[i].Objectives.First().Value}/{missionData.ProgressToComplete}"
-            });
+                try
+                {
+                    _userContacts = await AssistApplication.ActiveUser.Contracts.GetAllContracts();
+                }
+                catch (Exception e)
+                {
+                    Serilog.Log.Error("Failed to fetch contracts for weekly missions: {Message}", e.Message);
+                    Serilog.Log.Error(e.StackTrace);
+                    return;
+                }
+            }
+
+            if (allMissions is null)
+            {
+                try
+                {
+                    allMissions = await AssistApplication.AssistApiService.GetAllMissions();
+                }
+                catch (Exception e)
+                {
+                    Serilog.Log.Error("Failed to fetch missions list: {Message}", e.Message);
+                    Serilog.Log.Error(e.StackTrace);
+                    allMissions = new List<Mission>();
+                }
+            }
+
+            var date = DateTime.Now.AddDays(1);
+
+            var weeklyMissions = _userContacts?.Missions?.FindAll(_mission => (_mission.ExpirationTime.Day != date.Day) || (_mission.ExpirationTime.Day != DateTime.Now.Day))
+                                 ?? new List<ContactsFetchObj.Mission>();
+
+            for (int i = 0; i < weeklyMissions.Count; i++)
+            {
+                var missionData = allMissions.Find(_m => weeklyMissions[i].ID == _m.Uuid);
+                if (missionData is null || missionData.XpGrant == 2000) { continue; }
+
+                WeeklyMissions.Add(new PreviewMissionControl()
+                {
+                    Height = 30,
+                    Title = missionData.Title,
+                    CurrentProgress = weeklyMissions[i].Objectives.First().Value,
+                    MaxProgress = missionData.ProgressToComplete,
+                    XpGrantAmount = $"{missionData.XpGrant}XP",
+                    PreviewText = $"{weeklyMissions[i].Objectives.First().Value}/{missionData.ProgressToComplete}"
+                });
+            }
+            if (WeeklyMissions.Count == 0) WeeklyMissionsCompleted = true;
         }
-        if (WeeklyMissions.Count == 0) WeeklyMissionsCompleted = true;
+        catch (Exception ex)
+        {
+            Serilog.Log.Error("SetupWeeklyMissions failed: {Message}", ex.Message);
+            Serilog.Log.Error(ex.StackTrace);
+        }
     }
 }
