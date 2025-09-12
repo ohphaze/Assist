@@ -50,7 +50,13 @@ public partial class StoreViewModel : ViewModelBase
         BundleControls.Clear();
         
         var store = await GetCurrentUserStore();
-        
+        if (store == null || store.Store == null)
+        {
+            Log.Error("StoreViewModel: store is null; cannot populate store view.");
+            LoadingStore = false;
+            return;
+        }
+
         CreateBundleControl(store);
         CreateSkinControls(store);
         if (store.Store.BonusStore is not null)
@@ -156,12 +162,20 @@ public partial class StoreViewModel : ViewModelBase
     private void CreateSkinControls(StoreStorageModel? value)
     {
         OfferControls.Clear();
-        
-        foreach (var itemOffer in value.Store.SkinsPanelLayout.SingleItemOffers)
+        try
         {
-            /*var poss = OfferControls.Where(x => x.SkinId == itemOffer).FirstOrDefault();
-            if (poss == null) // Check if the Offer is already on display, if not make it.*/
-            CreateSkinControl(itemOffer);
+            if (value?.Store?.SkinsPanelLayout?.SingleItemOffers == null)
+                return;
+
+            foreach (var itemOffer in value.Store.SkinsPanelLayout.SingleItemOffers)
+            {
+                CreateSkinControl(itemOffer);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("CreateSkinControls failed: {Message}", ex.Message);
+            Log.Error(ex.StackTrace);
         }
     }
 
@@ -196,28 +210,37 @@ public partial class StoreViewModel : ViewModelBase
     
     private async void CreateBundleControl(StoreStorageModel? value)
     {
-        
-        foreach (var bundleData in value.Store.FeaturedBundle.Bundles)
+        try
         {
-            if(bundleData.DataAssetID == null)
+            var bundles = value?.Store?.FeaturedBundle?.Bundles;
+            if (bundles == null)
                 return;
-            
-            if (BundleControls.Where(x => x.BundleId == bundleData.DataAssetID).FirstOrDefault() is not null)
-                continue;
-            
-            var bData = await AssistApplication.AssistApiService.GetBundleAsync(bundleData.DataAssetID);
 
-            var price = bundleData.Items.Sum(x => x.DiscountedPrice);
-            BundleControls.Add(new BundleOfferControl()
+            foreach (var bundleData in bundles)
             {
-                BundleName = bData.Name.ToUpper(),
-                BundleImage = bData.DisplayIcon,
-                BundlePrice = $"{price:n0}",
-                BundleId = bundleData.DataAssetID,
-                Margin = value.Store.FeaturedBundle.Bundles.Count > 1 ? new Thickness(0,5) : new Thickness(0,0,0,5)
-            });
-            
-            
+                if (string.IsNullOrEmpty(bundleData.DataAssetID))
+                    continue;
+
+                if (BundleControls.Where(x => x.BundleId == bundleData.DataAssetID).FirstOrDefault() is not null)
+                    continue;
+
+                var bData = await AssistApplication.AssistApiService.GetBundleAsync(bundleData.DataAssetID);
+
+                var price = bundleData.Items.Sum(x => x.DiscountedPrice);
+                BundleControls.Add(new BundleOfferControl()
+                {
+                    BundleName = (bData?.Name ?? "Bundle").ToUpper(),
+                    BundleImage = bData?.DisplayIcon ?? string.Empty,
+                    BundlePrice = $"{price:n0}",
+                    BundleId = bundleData.DataAssetID,
+                    Margin = bundles.Count > 1 ? new Thickness(0,5) : new Thickness(0,0,0,5)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("CreateBundleControl failed: {Message}", ex.Message);
+            Log.Error(ex.StackTrace);
         }
     }
 

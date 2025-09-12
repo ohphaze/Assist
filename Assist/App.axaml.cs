@@ -139,6 +139,13 @@ public partial class App : Application
         Directory.CreateDirectory(Path.Combine(GetApplicationDataFolder(), "Logs"));
         Directory.CreateDirectory(Path.Combine(GetApplicationDataFolder(), "Deps"));
         Directory.CreateDirectory(Path.Combine(GetApplicationDataFolder(), "Accounts"));
+        try
+        {
+            var imagesPath = Path.Combine(GetApplicationDataFolder(), "Images");
+            Directory.CreateDirectory(imagesPath);
+            Directory.CreateDirectory(Path.Combine(imagesPath, "Cache"));
+        }
+        catch { }
     }
 
     private void CreateLogger()
