@@ -183,56 +183,77 @@ public partial class NavigationViewModel : ViewModelBase
     {
         if (CurrentPage == AssistPage.UNKNOWN)
             return;
-        
-        _pages.TryGetValue(CurrentPage, out var newPage);
-        
-        if (newPage is null)
+        try
         {
-            switch (CurrentPage)
+            _pages.TryGetValue(CurrentPage, out var newPage);
+
+            if (newPage is null)
             {
-                case AssistPage.STORE:
-                    newPage = new StoreView();
-                    break;
-                case AssistPage.DASHBOARD:
-                    newPage = new DashboardView();
-                    break;
-                case AssistPage.LIVE:
-                    newPage = new LiveView();
-                    break;
-                case AssistPage.SETTINGS:
-                    newPage = new SettingsView();
-                    break;
-                case AssistPage.MODULES:
-                    newPage = new ModulesView();
-                    break;
-                case AssistPage.DODGE:
-                    newPage = new DodgeView();
-                    break;
-                case AssistPage.DISCORD:
-                    newPage = new DiscordView();
-                    break;
-                case AssistPage.ASSSOCKET:
-                    newPage = new SocketView();
-                    break;
-                default:
-                    Log.Error("Tried swapping to a page which is not supported. EP01");
+                try
+                {
+                    switch (CurrentPage)
+                    {
+                        case AssistPage.STORE:
+                            newPage = new StoreView();
+                            break;
+                        case AssistPage.DASHBOARD:
+                            newPage = new DashboardView();
+                            break;
+                        case AssistPage.LIVE:
+                            newPage = new LiveView();
+                            break;
+                        case AssistPage.SETTINGS:
+                            newPage = new SettingsView();
+                            break;
+                        case AssistPage.MODULES:
+                            newPage = new ModulesView();
+                            break;
+                        case AssistPage.DODGE:
+                            newPage = new DodgeView();
+                            break;
+                        case AssistPage.DISCORD:
+                            newPage = new DiscordView();
+                            break;
+                        case AssistPage.ASSSOCKET:
+                            newPage = new SocketView();
+                            break;
+                        default:
+                            Log.Error("Tried swapping to a page which is not supported. EP01");
+                            return;
+                    }
+
+                    if (CurrentPage != AssistPage.LIVE) // Live is no longer stored.
+                    {
+                        _pages.Add(CurrentPage, newPage);
+                    }
+                }
+                catch (Exception ctorEx)
+                {
+                    Log.Error("Failed to create page {Page}: {Message}", CurrentPage, ctorEx.Message);
+                    Log.Error(ctorEx.StackTrace);
                     return;
+                }
             }
 
-            if (CurrentPage != AssistPage.LIVE) // Live is no longer stored.
+            _history[0] = _history[1];
+            _history[1] = CurrentPage;
+
+            try
             {
-                _pages.Add(CurrentPage, newPage);    
+                AssistApplication.ChangeMainWindowView(newPage);
             }
-            
+            catch (Exception vmEx)
+            {
+                Log.Error("Failed to swap to page {Page}: {Message}", CurrentPage, vmEx.Message);
+                Log.Error(vmEx.StackTrace);
+            }
+            //GC.Collect();
         }
-
-        _history[0] = _history[1];
-        _history[1] = CurrentPage;
-        
-        
-        
-        AssistApplication.ChangeMainWindowView(newPage);
-        //GC.Collect();
+        catch (Exception ex)
+        {
+            Log.Error("SwapToPage failed: {Message}", ex.Message);
+            Log.Error(ex.StackTrace);
+        }
     }
     
     

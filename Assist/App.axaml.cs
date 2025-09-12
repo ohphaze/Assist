@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text.Json;
@@ -105,6 +106,9 @@ public partial class App : Application
         // Global exception logging hooks
         try
         {
+            // Prefer modern TLS for outbound HTTP (e.g., CDN image loads)
+            try { ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | (SecurityProtocolType)12288; } catch { }
+
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
                 try
@@ -126,6 +130,7 @@ public partial class App : Application
                 }
                 catch { }
             };
+            // Note: Avalonia 11 doesn't expose a Dispatcher UnhandledException event; rely on AppDomain and TaskScheduler.
         }
         catch { }
         CheckForSettings();
