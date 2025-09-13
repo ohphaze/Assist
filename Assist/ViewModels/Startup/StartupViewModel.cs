@@ -56,7 +56,8 @@ public partial class StartupViewModel : ViewModelBase
 
     public async Task Startup()
     {  
-        NavigationContainer.ViewModel.HideAllButtons();
+        // Navigation container may not be initialized yet depending on load order
+        NavigationContainer.ViewModel?.HideAllButtons();
         // Check for Dependency
         await DependencyUtils.CheckDepends();
         var newVersion = await AssistApplication.CheckForUpdates();

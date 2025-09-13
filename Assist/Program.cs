@@ -30,18 +30,22 @@ class Program
         catch (Exception e)
         {
             Log.Fatal("Fatal Error");
-            Log.Fatal(e.Message);
-            Log.Fatal("Fatal Error STACK == ");
-            Log.Fatal(e.StackTrace);
+            try { Log.Fatal(e.ToString()); } catch { }
+            try
+            {
+                Log.Fatal("Fatal Error STACK == ");
+                Log.Fatal(e.StackTrace);
+            }
+            catch { }
             Log.CloseAndFlush();
         }
         finally
         {
 #if (!DEBUG)
-                Log.CloseAndFlush();
-                AssistSettings.Save();
-                AccountSettings.Save();
-                AssistApplication.CurrentApplication.Shutdown();
+                try { Log.CloseAndFlush(); } catch { }
+                try { AssistSettings.Save(); } catch { }
+                try { AccountSettings.Save(); } catch { }
+                try { AssistApplication.CurrentApplication?.Shutdown(); } catch { }
 #endif
 
         }

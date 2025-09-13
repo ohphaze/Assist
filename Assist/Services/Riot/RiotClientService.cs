@@ -60,7 +60,7 @@ namespace Assist.Services.Riot
                 Log.Error("Launcher files dont exist");
 
                 AssistApplication.ShowcaseErrorMessage("Required Files do not exist, please repair the profile.\nWithin Profile Management");
-                NavigationContainer.ViewModel.EnableAllButtons();
+                NavigationContainer.ViewModel?.EnableAllButtons();
                 return;
             }
         

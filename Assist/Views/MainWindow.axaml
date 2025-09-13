@@ -13,7 +13,7 @@
         x:Class="Assist.Views.MainWindow"
         Icon="/Assets/Assist_IconBlack.ico"
         CanResize="False"
-        WindowStartupLocation="CenterOwner"
+        WindowStartupLocation="CenterScreen"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="49"

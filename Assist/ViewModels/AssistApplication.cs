@@ -144,7 +144,7 @@ public static class AssistApplication
 
         Dispatcher.UIThread.Invoke(() =>
         {
-            NavigationContainer.ViewModel.HideAllButtons();
+            NavigationContainer.ViewModel?.HideAllButtons();
         });
         
 
@@ -153,7 +153,8 @@ public static class AssistApplication
         switch (newMode)
         {
           case  EAssistMode.GAME:
-              Titlebar.ViewModel.AccountSwapVisible = false;
+              if (Titlebar.ViewModel != null)
+                  Titlebar.ViewModel.AccountSwapVisible = false;
               break;
           case EAssistMode.LAUNCHER:
               break;
@@ -249,9 +250,12 @@ public static class AssistApplication
         await SwapAssistMode(EAssistMode.GAME); // Just to confirm
         Dispatcher.UIThread.Invoke(() =>
         {
-            Titlebar.ViewModel.AccountSwapVisible = false;
-            Titlebar.ViewModel.SettingsEnabled = true;
-            NavigationContainer.ViewModel.ChangePage(AssistPage.LIVE);
+            if (Titlebar.ViewModel != null)
+            {
+                Titlebar.ViewModel.AccountSwapVisible = false;
+                Titlebar.ViewModel.SettingsEnabled = true;
+            }
+            NavigationContainer.ViewModel?.ChangePage(AssistPage.LIVE);
             EnableDefaultGameButtons();
             
         });
@@ -259,17 +263,17 @@ public static class AssistApplication
 
     public static void EnableDefaultLauncherButtons()
     {
-        NavigationContainer.ViewModel.EnableButton(AssistPage.DASHBOARD);
-        NavigationContainer.ViewModel.EnableButton(AssistPage.STORE);
-        NavigationContainer.ViewModel.EnableButton(AssistPage.MODULES);
-        NavigationContainer.ViewModel.EnableAllButtons();
+        NavigationContainer.ViewModel?.EnableButton(AssistPage.DASHBOARD);
+        NavigationContainer.ViewModel?.EnableButton(AssistPage.STORE);
+        NavigationContainer.ViewModel?.EnableButton(AssistPage.MODULES);
+        NavigationContainer.ViewModel?.EnableAllButtons();
     }
     
     public static void EnableDefaultGameButtons()
     {
-        NavigationContainer.ViewModel.EnableButton(AssistPage.LIVE);
-        NavigationContainer.ViewModel.EnableButton(AssistPage.MODULES);
-        NavigationContainer.ViewModel.EnableAllButtons();
+        NavigationContainer.ViewModel?.EnableButton(AssistPage.LIVE);
+        NavigationContainer.ViewModel?.EnableButton(AssistPage.MODULES);
+        NavigationContainer.ViewModel?.EnableAllButtons();
     }
     
     public static void OpenUpdateWindow()
@@ -294,6 +298,15 @@ public static class AssistApplication
     public static async Task<bool> CheckForUpdates()
     {
 #if (!DEBUG)
+        // Allow dev environment to skip update checks when running unpackaged
+        try
+        {
+            var skipUpdates = Environment.GetEnvironmentVariable("ASSIST_SKIP_UPDATES") == "1" ||
+                              Environment.GetEnvironmentVariable("ASSIST_DEV") == "1";
+            if (skipUpdates)
+                return false;
+        }
+        catch { }
 
             if (OperatingSystem.IsWindows())
             {
@@ -308,7 +321,12 @@ public static class AssistApplication
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e.Message);
+                    // Swallow common message when app is not installed (dev/local runs)
+                    var msg = e.Message ?? string.Empty;
+                    if (msg.IndexOf("not installed", StringComparison.OrdinalIgnoreCase) >= 0)
+                        Log.Information(msg);
+                    else
+                        Log.Error(msg);
                 }
             }
 
@@ -326,7 +344,11 @@ public static class AssistApplication
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e.Message);
+                    var msg = e.Message ?? string.Empty;
+                    if (msg.IndexOf("not installed", StringComparison.OrdinalIgnoreCase) >= 0)
+                        Log.Information(msg);
+                    else
+                        Log.Error(msg);
                 }
             }
             

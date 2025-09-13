@@ -40,6 +40,6 @@ public partial class TitlebarViewModel : ViewModelBase
     [RelayCommand]
     public void OpenSettingsPage()
     {
-        NavigationContainer.ViewModel.ChangePage(AssistPage.SETTINGS);
+        NavigationContainer.ViewModel?.ChangePage(AssistPage.SETTINGS);
     }
 }

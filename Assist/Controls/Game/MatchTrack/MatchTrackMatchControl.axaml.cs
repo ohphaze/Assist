@@ -10,14 +10,20 @@ namespace Assist.Controls.Game.MatchTrack;
 public partial class MatchTrackMatchControl : UserControl
 {
     private readonly MatchTrackMatchViewModel _viewModel;
-    public string MatchId;
+    public string? MatchId;
 
-    
+    public MatchTrackMatchControl()
+    {
+        DataContext = _viewModel = new MatchTrackMatchViewModel();
+        InitializeComponent();
+    }
+
     public MatchTrackMatchControl(RecentMatch? data)
     {
         DataContext = _viewModel = new MatchTrackMatchViewModel();
         _viewModel.RecentMatchData = data;
-        MatchId = data.MatchId;
+        if (data != null)
+            MatchId = data.MatchId;
         InitializeComponent();
     }
     

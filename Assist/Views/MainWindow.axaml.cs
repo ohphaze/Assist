@@ -18,6 +18,11 @@ public partial class MainWindow : Window
         DataContext = _viewModel = new MainWindowViewModel();
         _viewModel.ChangeResolution(AssistSettings.Default.SelectedResolution);
         InitializeComponent();
+        // Ensure notification manager exists before any notifications
+        notificationManager = new WindowNotificationManager(this)
+        {
+            Position = NotificationPosition.TopRight
+        };
         
     }
     

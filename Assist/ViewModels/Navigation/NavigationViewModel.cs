@@ -134,9 +134,11 @@ public partial class NavigationViewModel : ViewModelBase
         
         Dispatcher.UIThread.Invoke(() =>
         {
-            var btn = NavigationContainer.ViewModel.NavigationButtons.Find(x => x.Page == _page);
+            var vm = NavigationContainer.ViewModel;
+            if (vm == null) return;
+            var btn = vm.NavigationButtons.Find(x => x.Page == _page);
             if(btn is null) return;
-            NavigationContainer.ViewModel.NavigationButtons.Select(x => x.IsChecked = false);
+            vm.NavigationButtons.Select(x => x.IsChecked = false);
             btn.IsChecked = true;
         });
     }

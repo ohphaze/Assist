@@ -39,10 +39,16 @@ public partial class ProgressionPreviewViewModel : ViewModelBase
     private bool _newUser = false;
     public async Task Setup()
     {
+        // If we don't have an authenticated user yet, skip quietly
+        if (AssistApplication.ActiveUser == null)
+        {
+            Serilog.Log.Information("Progression: ActiveUser is null; skipping setup.");
+            return;
+        }
         await HandleDailyTicket();
         await SetupWeeklyMissions();
         await SetupCompetitiveDetails();
-        _currentUser = AssistApplication.ActiveUser.UserData.sub;
+        try { _currentUser = AssistApplication.ActiveUser?.UserData?.sub; } catch { }
         _newUser = false;
         
     }
@@ -59,9 +65,12 @@ public partial class ProgressionPreviewViewModel : ViewModelBase
     }
     public async Task HandleDailyTicket()
     {
+        if (AssistApplication.ActiveUser == null)
+            return;
         try
         {
-            await AssistApplication.ActiveUser.Contracts.RenewDailyTicket(); // God knows what this does. Writing this before it resets the daily ticket every time LMFAO
+            // Some Riot regions/endpoints can throw non-RequestException errors; guard broadly
+            await AssistApplication.ActiveUser.Contracts.RenewDailyTicket();
             UserTicket = await AssistApplication.ActiveUser.Contracts.GetDailyTicket();
         }
         catch (RequestException e)
@@ -69,6 +78,12 @@ public partial class ProgressionPreviewViewModel : ViewModelBase
             Log.Information("Failed to Get Daily Ticket");
             Log.Information(e.Content);
             Log.Information($"Status Code: {e.StatusCode}");
+            return;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Daily ticket retrieval failed: {Message}", ex.Message);
+            Log.Error(ex.StackTrace);
             return;
         }
 
