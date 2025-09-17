@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Assist.Client.ViewModels"
+             xmlns:models="using:Assist.Core.Models"
+             mc:Ignorable="d"
+             x:Class="Assist.Client.Views.Pages.LiveView"
+             x:DataType="vm:LiveViewModel">
+    <ScrollViewer>
+        <StackPanel Spacing="16">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Live match" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="Check on your current lobby in real time." FontSize="12" Opacity="0.7" />
+            </StackPanel>
+            <Border Background="#181a20" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding CurrentMatch.Map, StringFormat='Map: {0}'}" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding CurrentMatch.Mode, StringFormat='Mode: {0}'}" FontSize="14" />
+                    <TextBlock Text="{Binding CurrentMatch.RoundNumber, StringFormat='Round {0}'}" FontSize="12" Opacity="0.7" />
+                    <TextBlock Text="{Binding Error}" Foreground="Red" FontSize="12" />
+                </StackPanel>
+            </Border>
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="24">
+                <StackPanel>
+                    <TextBlock Text="Allies" FontSize="18" FontWeight="SemiBold" />
+                    <ItemsControl ItemsSource="{Binding AllyTeam}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:PlayerPerformance">
+                                <Border Background="#181a20" CornerRadius="6" Padding="8" Margin="0 0 0 8">
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" Width="150" />
+                                        <TextBlock Text="{Binding Agent}" FontSize="12" Opacity="0.7" Width="80" />
+                                        <TextBlock Text="{Binding Kills, StringFormat='K:{0}'}" FontSize="12" />
+                                        <TextBlock Text="{Binding Deaths, StringFormat='D:{0}'}" FontSize="12" />
+                                        <TextBlock Text="{Binding Assists, StringFormat='A:{0}'}" FontSize="12" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Opponents" FontSize="18" FontWeight="SemiBold" />
+                    <ItemsControl ItemsSource="{Binding EnemyTeam}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:PlayerPerformance">
+                                <Border Background="#181a20" CornerRadius="6" Padding="8" Margin="0 0 0 8">
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" Width="150" />
+                                        <TextBlock Text="{Binding Agent}" FontSize="12" Opacity="0.7" Width="80" />
+                                        <TextBlock Text="{Binding Kills, StringFormat='K:{0}'}" FontSize="12" />
+                                        <TextBlock Text="{Binding Deaths, StringFormat='D:{0}'}" FontSize="12" />
+                                        <TextBlock Text="{Binding Assists, StringFormat='A:{0}'}" FontSize="12" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

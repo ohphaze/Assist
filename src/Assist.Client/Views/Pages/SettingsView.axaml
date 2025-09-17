@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Assist.Client.ViewModels"
+             mc:Ignorable="d"
+             x:Class="Assist.Client.Views.Pages.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <StackPanel Spacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock Text="Manage Assist preferences and data." FontSize="12" Opacity="0.7" />
+        </StackPanel>
+        <Border Background="#181a20" CornerRadius="8" Padding="12">
+            <StackPanel>
+                <TextBlock Text="Application" FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding ApplicationVersion, StringFormat='Version {0}'}" FontSize="12" Opacity="0.7" />
+            </StackPanel>
+        </Border>
+        <Border Background="#181a20" CornerRadius="8" Padding="12">
+            <StackPanel Spacing="8">
+                <TextBlock Text="Data folder" FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding DataDirectory}" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                <Button Content="Open folder" Command="{Binding OpenDataDirectoryCommand}" HorizontalAlignment="Left" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

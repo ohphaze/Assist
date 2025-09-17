@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Assist.Client.ViewModels"
+        x:Class="Assist.Client.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="avares://Assist.Client/Assets/avalonia-logo.ico"
+        Title="Assist Launcher"
+        Width="1280"
+        Height="800"
+        MinWidth="960"
+        MinHeight="600">
+    <Grid ColumnDefinitions="240,*" RowDefinitions="Auto,*">
+        <Border Grid.RowSpan="2" Background="#181a20">
+            <StackPanel Margin="16" Spacing="24">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="ASSIST" FontSize="28" FontWeight="Bold" />
+                    <TextBlock Text="VALORANT companion launcher" FontSize="12" Opacity="0.7" />
+                </StackPanel>
+                <Border Background="#20222a" Padding="12" CornerRadius="8">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Active account" FontSize="12" Opacity="0.7" />
+                        <TextBlock Text="{Binding ActiveAccount}" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="Select or add an account to personalize data." FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <ListBox ItemsSource="{Binding NavigationItems}"
+                         SelectedItem="{Binding SelectedNavigationItem}"
+                         Background="Transparent"
+                         BorderBrush="Transparent"
+                         Margin="0"
+                         SelectionMode="Single">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavigationItemViewModel">
+                            <Border CornerRadius="8" Padding="12" Margin="4">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="{Binding Icon}" FontSize="18" />
+                                    <TextBlock Text="{Binding Title}" FontSize="16" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Background="#101116" Padding="24" Height="60">
+            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                <TextBlock Text="{Binding SelectedNavigationItem.Title}" FontSize="18" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Text="Assist Launcher" FontSize="12" Opacity="0.6" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Column="1" Grid.Row="1" Background="#0f1014" Padding="24">
+            <ContentControl Content="{Binding CurrentViewModel}" />
+        </Border>
+    </Grid>
+</Window>

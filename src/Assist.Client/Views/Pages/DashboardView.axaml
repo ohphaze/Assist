@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Assist.Client.ViewModels"
+             xmlns:models="using:Assist.Core.Models"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             mc:Ignorable="d"
+             x:Class="Assist.Client.Views.Pages.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+    <UserControl.Resources>
+        <x:String x:Key="DateFormat">Expires {0:MMM d HH:mm}</x:String>
+        <x:String x:Key="NewsFormat">{0:MMM d, yyyy}</x:String>
+    </UserControl.Resources>
+    <ScrollViewer>
+        <StackPanel Spacing="24">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Daily Missions" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="Stay on top of your XP gains." FontSize="12" Opacity="0.7" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding DailyMissions}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:DailyMission">
+                        <Border Background="#181a20" CornerRadius="8" Padding="12" Margin="0 0 0 12">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Description}" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                <ProgressBar Minimum="0" Maximum="1" Value="{Binding Completion}" Height="8" />
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="{Binding Progress}" FontSize="12" />
+                                    <TextBlock Text="/" FontSize="12" />
+                                    <TextBlock Text="{Binding Target}" FontSize="12" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ExpiresAt, StringFormat={StaticResource DateFormat}}" FontSize="11" Opacity="0.5" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="Recent Matches" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="Your latest performances." FontSize="12" Opacity="0.7" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding RecentMatches}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:MatchSummary">
+                        <Border Background="#181a20" CornerRadius="8" Padding="12" Margin="0 0 0 12">
+                            <Grid ColumnDefinitions="*,*,*">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Map}" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Mode}" FontSize="12" Opacity="0.7" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Result}" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding CompletedAt, StringFormat='Played {0:g}'}" FontSize="12" Opacity="0.7" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Agent}" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Kda, StringFormat='KDA {0:F2}'}" FontSize="12" Opacity="0.7" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="Latest News" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="Stay connected with the community." FontSize="12" Opacity="0.7" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding NewsArticles}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:NewsArticle">
+                        <Border Background="#181a20" CornerRadius="8" Padding="12" Margin="0 0 0 12">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Summary}" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding PublishedAt, StringFormat={StaticResource NewsFormat}}" FontSize="11" Opacity="0.5" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding Error}" Foreground="Red" FontSize="12" IsVisible="{Binding Error, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
